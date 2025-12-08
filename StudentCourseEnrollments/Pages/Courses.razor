@@ -30,8 +30,8 @@ else
         <button type="button" class="btn btn-outline-secondary me-2"
         @onclick="ToggleSelectAll">
             @(courses?.Any() == true && courses.All(c => selectedIds.Contains(c.Id))
-                                                        ? "Deselect All"
-                                                        : "Select All")
+                        ? "Deselect All" :
+                        "Select All")
         </button>
 
         @if (isAdmin)
@@ -157,7 +157,7 @@ else
     }
 }
 
-<h3 class="mt-5">My Enrolled Courses</h3>
+<h3 class="mt-5">@enrolledCourseTitle</h3>
 
 @if (isEnrollmentGridLoading)
 {
@@ -174,94 +174,97 @@ else
     {
         <div class="mb-3">
             <button class="btn-danger me-2"
-                    disabled="@(selectedEnrolledIds.Count == 0)"
-                    @onclick="BulkDeregister">
+            disabled="@(selectedEnrolledIds.Count == 0)"
+            @onclick="BulkDeregister">
                 Deregister Selected (@selectedEnrolledIds.Count)
             </button>
             <button type="button" class="btn btn-outline-secondary me-2"
-                    @onclick="ToggleSelectAllEnrolled">
-                @(enrolledCourses.All(c => selectedEnrolledIds.Contains(c.CourseId))
-                    ? "Deselect All"
-                    : "Select All")
+            @onclick="ToggleSelectAllEnrolled">
+                @(enrolledCourses.All(c => selectedEnrolledIds.Contains(c.CourseId))                                                                              
+                ? "Deselect All"                                                                        
+                : "Select All")
             </button>
         </div>
     }
 
 
     <Grid TItem="Enrollment.EnrolledCourses"
-          Data="enrolledCourses"
-          Class="table table-hover table-striped"
-          Responsive="true"
-          AllowPaging="true"
-          PageSize="5">
+    Data="enrolledCourses"
+    Class="table table-hover table-striped"
+    Responsive="true"
+    AllowPaging="true"
+    PageSize="5">
 
         <!-- Checkbox Column -->
         <GridColumn TItem="Enrollment.EnrolledCourses" HeaderText="">
             <input type="checkbox"
-                   checked="@selectedEnrolledIds.Contains(context.CourseId)"
-                   @onchange="() => ToggleEnrolledCourse(context.CourseId)" />
+            checked="@selectedEnrolledIds.Contains(context.CourseId)"
+            @onchange="() => ToggleEnrolledCourse(context.CourseId)" />
         </GridColumn>
-
+        <!-- Title Column -->
         <GridColumn TItem="Enrollment.EnrolledCourses" HeaderText="Title">
             <strong>@context.Title</strong>
         </GridColumn>
-
+        <!-- Description Column -->
         <GridColumn TItem="Enrollment.EnrolledCourses" HeaderText="Description">
             @context.Description
         </GridColumn>
-
+        <!-- If Admin, then display extra column -->
         @if (isAdmin)
         {
             <GridColumn TItem="Enrollment.EnrolledCourses" HeaderText="Students">
                 @context.TotalUsers
             </GridColumn>
         }
-
+        <!-- Grid Actions -->
         <GridColumn TItem="Enrollment.EnrolledCourses" HeaderText="Actions">
             @if (!isAdmin)
             {
                 <button class="btn btn-sm btn-outline-danger"
-                        @onclick="() => Deregister(context.CourseId)">
+                @onclick="() => Deregister(context.CourseId)">
                     Deregister
                 </button>
             }
             else
             {
                 <button class="btn btn-sm btn-primary"
-                        @onclick="() => LoadAndExpandUsers(context.CourseId)">
+                @onclick="() => LoadAndExpandUsers(context.CourseId)">
                     @(expandedCourseId == context.CourseId ? "Hide Users" : "View Users")
                 </button>
             }
         </GridColumn>
     </Grid>
 
-    <!-- EXPANDED USERS PANEL - Admin Only -->
+    <!-- Expanded Users Panel, Admin Only -->
     @if (isAdmin && expandedCourseId.HasValue)
     {
+        <!-- Set course id + userIds enrolled in current course -->
         var currentCourseId = expandedCourseId.Value;
         var users = enrolledUsersByCourse.GetValueOrDefault(currentCourseId);
 
         <div class="border-start border-primary border-4 ps-4 py-3 bg-light mt-3 mb-4 rounded shadow-sm">
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h6 class="mb-0 fw-bold">
+                    <!-- Display Enrolled Users Count -->
                     Enrolled Students @(users?.Count > 0 ? $"({users.Count})" : "(0)")
                 </h6>
                 <div class="d-flex gap-2">
+                    <!-- Display total selected users -->
                     @if (users?.Count > 0 && selectedUserIdsForCourse.ContainsKey(currentCourseId) &&
-                   selectedUserIdsForCourse[currentCourseId].Any())
+            selectedUserIdsForCourse[currentCourseId].Any())
                     {
                         <button class="btn btn-danger btn-sm"
-                                @onclick="() => ExcludeSelectedUsers(currentCourseId)">
+                        @onclick="() => ExcludeSelectedUsers(currentCourseId)">
                             Exclude Selected (@selectedUserIdsForCourse[currentCourseId].Count)
                         </button>
                     }
                     <button class="btn btn-outline-secondary btn-sm"
-                            @onclick="() => expandedCourseId = null">
+                    @onclick="() => expandedCourseId = null">
                         Close
                     </button>
                 </div>
             </div>
-
+            <!-- Expand Only When Enrolled Users Is Found -->
             @if (users != null && users.Any())
             {
                 <table class="table table-sm table-bordered">
@@ -269,7 +272,7 @@ else
                         <tr>
                             <th style="width:40px">
                                 <input type="checkbox"
-                                       @onchange="@(e => ToggleSelectAllUsers(currentCourseId, e.Value ?? false))" />
+                                @onchange="@(e => ToggleSelectAllUsers(currentCourseId, e.Value ?? false))" />
                             </th>
                             <th>Name</th>
                             <th>Email</th>
@@ -283,12 +286,12 @@ else
                             <tr>
                                 <td>
                                     <input type="checkbox"
-                                           checked="@IsUserSelected(currentCourseId, user.UserId)"
-                                           @onchange="() => ToggleUserSelection(currentCourseId, user.UserId)" />
+                                    checked="@IsUserSelected(currentCourseId, user.UserId)"
+                                    @onchange="() => ToggleUserSelection(currentCourseId, user.UserId)" />
                                 </td>
                                 <td>@user.Name</td>
                                 <td>@user.Email</td>
-                                <td>@user.EnrolledAt.ToString("MMM dd, yyyy")</td>
+                                <td>@user.EnrolledAt.ToString("MM dd, yyyy")</td> <!-- Set Date Format (<MM dd yyyy>) -->
                                 <td>
                                     <span class="badge @(user.IsActive ? "bg-success" : "bg-secondary")">
                                         @(user.IsActive ? "Active" : "Inactive")
@@ -299,7 +302,7 @@ else
                     </tbody>
                 </table>
             }
-            else
+            else <!-- Display Default -->
             {
                 <div class="text-muted fst-italic">
                     No students enrolled in this course.
@@ -309,7 +312,10 @@ else
     }
 }
 @code {
-
+    /* Declare variables to use within the methods/functions, this could become Global application variables as well
+     * but this was added just for convenience
+     */
+    private string? enrolledCourseTitle;
     public string? role = null;
     private int? expandedCourseId;
     private Dictionary<int, List<EnrolledUsers>> enrolledUsersByCourse = new();
@@ -323,25 +329,25 @@ else
     private bool isAdmin = false;
     private bool showAddForm = false;
     private int userId;
-    // Editing state
     private int editingId = 0;
     private string editTitle = "";
     private string editDescription = "";
     private bool editIsActive = true;
     private List<EnrolledUsers> enrolledUsers = new();
-
-    // Add new course state
     private string newTitle = "";
     private string newDescription = "";
+    private bool isInitialized = false;
 
     protected override async Task OnInitializedAsync()
     {
+        //Authprovider identifying role for variable IsAdmin and other custom attributes
         var auth = await AuthProvider.GetAuthenticationStateAsync();
         isAdmin = auth.User.IsInRole("admin");
+        enrolledCourseTitle = isAdmin ? $"Manage All Enrollments" : $"My Enrolled Courses";
         userId = Convert.ToInt32(await LocalStorage.GetItemAsync<string>("userId"));
         await LoadData();
     }
-
+    //Seed Data For Grids
     private async Task LoadData()
     {
         isCourseGridLoading = true;
@@ -350,41 +356,48 @@ else
         courses = availableResp?.Data ?? new List<Course>();
 
         var enrolledResp = await Api.TSendAsync<AppResponse<List<Enrollment.EnrolledCourses>>>($"api/courses/enrolled/{userId}");
-		enrolledCourses = enrolledResp?.Data ?? new List<Enrollment.EnrolledCourses>();
+        enrolledCourses = enrolledResp?.Data ?? new List<Enrollment.EnrolledCourses>();
         isCourseGridLoading = false;
         isEnrollmentGridLoading = false;
         selectedIds.Clear();
         editingId = 0;		
+        StateHasChanged();
     }
-
+    //Button Click Action to load and expand users enrolled in a specific courseId
     private async Task LoadAndExpandUsers(int courseId)
     {
-        expandedCourseId = courseId;
-
-        // Only load once
-        if (!enrolledUsersByCourse.ContainsKey(courseId))
+        //If already expanded for this course, close it
+        if (expandedCourseId == courseId)
         {
-            var response = await Api.TSendAsync<AppResponse<List<EnrolledUsers>>>(
-                $"api/courses/enrolled-users/{courseId}");
-
-            if (response?.Success == true && response.Data != null)
-            {
-                enrolledUsersByCourse[courseId] = response.Data;
-            }
-            else
-            {
-                enrolledUsersByCourse[courseId] = new();
-                Notify.Show("Failed to load enrolled users.", 500);
-            }
+            expandedCourseId = null;
+            return;
         }
-    }
 
+        expandedCourseId = courseId;
+        //Send request to retrieve records as its not pulled all at once from API
+        var response = await Api.TSendAsync<AppResponse<List<EnrolledUsers>>>(
+            $"api/courses/enrolled-users/{courseId}");
+
+        if (response?.Success == true && response.Data != null)
+        {
+            enrolledUsersByCourse[courseId] = response.Data;
+        }
+        else
+        {
+            enrolledUsersByCourse[courseId] = new List<EnrolledUsers>();
+            if (response?.Message != null)
+                Notify.Show(response.Message, 500);
+        }
+
+        selectedUserIdsForCourse.Remove(courseId);
+    }
+    //Function to return True/False when user is selected in expansion block
     private bool IsUserSelected(int courseId, int userId)
     {
         return selectedUserIdsForCourse.ContainsKey(courseId) &&
                selectedUserIdsForCourse[courseId].Contains(userId);
     }
-
+    //Toggles user selection by courseId and userId
     private void ToggleUserSelection(int courseId, int userId)
     {
         if (!selectedUserIdsForCourse.ContainsKey(courseId))
@@ -395,7 +408,7 @@ else
         else
             selectedUserIdsForCourse[courseId].Add(userId);
     }
-
+    //Select all users of course at once
     private void ToggleSelectAllUsers(int courseId, object checkedValue)
     {
         var isChecked = (bool)checkedValue;
@@ -409,7 +422,7 @@ else
         else
             selectedUserIdsForCourse[courseId].Clear();
     }
-
+    //This will execute a API call to exclude users from the selected courses
     private async Task ExcludeSelectedUsers(int courseId)
     {
         if (!selectedUserIdsForCourse.TryGetValue(courseId, out var userIds) || !userIds.Any())
@@ -434,13 +447,14 @@ else
             if (course != null) course.TotalUsers = list!.Count;
 
             Notify.Show("Users excluded successfully", 200);
+            await LoadData();
         }
         else
         {
             Notify.Show("Failed to exclude users", 500);
         }
     }
-
+    //Toggle Selected Course
     private void ToggleCourse(int id)
     {
         if (selectedIds.Contains(id))
@@ -448,9 +462,9 @@ else
         else
             selectedIds.Add(id);
 
-        StateHasChanged(); // Important!
+        StateHasChanged(); //This is required to update the Grid
     }
-
+    //Select all courses at once
     private void ToggleSelectAll()
     {
         if (courses == null || !courses.Any())
@@ -465,9 +479,9 @@ else
             selectedIds = new HashSet<int>(courses.Select(c => c.Id));
         }
 
-        StateHasChanged();
+        StateHasChanged();//Update grid
     }
-
+    //Enroll courses in bulk
     private async Task BulkEnroll()
     {
         if (selectedIds.Count == 0)
@@ -481,16 +495,16 @@ else
 
         selectedIds.Clear();
         await LoadData();
-        StateHasChanged();
+        
     }
-
+    //Enroll single course
     private async Task Enroll(int id)
     {
         AppResponse? response = await Api.TSendAsync<AppResponse>($"api/courses/enroll/{id}-{userId}",null,"POST");
         Notify.Show(response?.Message!, response!.Code);
         await LoadData();
     }
-
+    //Edit - Admin only
     private void StartEdit(Course course)
     {
         editingId = course.Id;
@@ -498,7 +512,7 @@ else
         editDescription = course.Description!;
         editIsActive = course.IsActive;
     }
-
+    //Admin only
     private async Task SaveEdit()
     {
         Course updated = new Course{
@@ -514,16 +528,15 @@ else
 
         editingId = 0;
     }
-
+    //Admin only
     private void CancelEdit() => editingId = 0;
-
+    //Admin only
     private async Task AddCourse()
     {
         if (string.IsNullOrWhiteSpace(newTitle))
         {
             Notify.Show("Title required", 404);
         }
-
 
         var course = new Course { 
             Id = 0, 
@@ -540,9 +553,9 @@ else
 
         await LoadData();
     }
-
+    //Rest of functions/methods already self explanitory
     private async Task RemoveCourse(int id)
-    {
+    {   //Invokes Javascript in page to alert user and capture response.
         if (await JSRuntime.InvokeAsync<bool>("confirm", "Delete permanently?"))
         {
             AppResponse? response = await Api.TSendAsync<AppResponse>($"api/courses/{id}", null, "DELETE");
