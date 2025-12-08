@@ -359,12 +359,6 @@ else
 
     private async Task LoadAndExpandUsers(int courseId)
     {
-        if (expandedCourseId == courseId)
-        {
-            expandedCourseId = null;
-            return;
-        }
-
         expandedCourseId = courseId;
 
         // Only load once
