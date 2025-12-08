@@ -30,8 +30,8 @@ else
         <button type="button" class="btn btn-outline-secondary me-2"
         @onclick="ToggleSelectAll">
             @(courses?.Any() == true && courses.All(c => selectedIds.Contains(c.Id))
-                                                    ? "Deselect All"
-                                                    : "Select All")
+                                                        ? "Deselect All"
+                                                        : "Select All")
         </button>
 
         @if (isAdmin)
@@ -170,19 +170,23 @@ else if (enrolledCourses == null || !enrolledCourses.Any())
 else
 {
     <!-- Bulk Deregister Button + Select All -->
-    <div class="mb-3">
-        <button class="btn-danger me-2"
-                disabled="@(selectedEnrolledIds.Count == 0)"
-                @onclick="BulkDeregister">
-            Deregister Selected (@selectedEnrolledIds.Count)
-        </button>
-        <button type="button" class="btn btn-outline-secondary me-2"
-                @onclick="ToggleSelectAllEnrolled">
-            @(enrolledCourses.All(c => selectedEnrolledIds.Contains(c.CourseId))
-                ? "Deselect All"
-                : "Select All")
-        </button>
-    </div>
+    @if (!isAdmin)
+    {
+        <div class="mb-3">
+            <button class="btn-danger me-2"
+                    disabled="@(selectedEnrolledIds.Count == 0)"
+                    @onclick="BulkDeregister">
+                Deregister Selected (@selectedEnrolledIds.Count)
+            </button>
+            <button type="button" class="btn btn-outline-secondary me-2"
+                    @onclick="ToggleSelectAllEnrolled">
+                @(enrolledCourses.All(c => selectedEnrolledIds.Contains(c.CourseId))
+                    ? "Deselect All"
+                    : "Select All")
+            </button>
+        </div>
+    }
+
 
     <Grid TItem="Enrollment.EnrolledCourses"
           Data="enrolledCourses"
