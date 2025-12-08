@@ -1,0 +1,606 @@
+﻿@page "/courses"
+@using MIDTIER.Models
+@using StudentCourseEnrollments.Services
+@inject APIService Api
+@inject NotificationService Notify
+@inject IJSRuntime JSRuntime
+@using Microsoft.AspNetCore.Components.Authorization
+@inject AuthenticationStateProvider AuthProvider
+@using BlazorBootstrap
+@inject Blazored.LocalStorage.ILocalStorageService LocalStorage
+
+<PageTitle>Courses</PageTitle>
+
+
+<h3 class="mt-4">Available Courses</h3>
+
+@if (courses == null && isCourseGridLoading == true)
+{
+    <div class="alert alert-info">Loading courses...</div>
+}
+else
+{
+    <div class="mb-3">
+        <button class="btn btn-success me-2"
+        disabled="@(selectedIds.Count == 0)"
+        @onclick="BulkEnroll">
+            Enroll Selected (@selectedIds.Count)
+        </button>
+
+        <button type="button" class="btn btn-outline-secondary me-2"
+        @onclick="ToggleSelectAll">
+            @(courses?.Any() == true && courses.All(c => selectedIds.Contains(c.Id))
+                                                    ? "Deselect All"
+                                                    : "Select All")
+        </button>
+
+        @if (isAdmin)
+        {
+            <button class="btn btn-primary" @onclick="() => showAddForm = true">
+                Add New Course
+            </button>
+        }
+    </div>
+    @if(courses != null)
+    {
+        <Grid TItem="Course" Data="courses" class="table table-hover table-striped table-responsive" Responsive="true" AllowPaging="true" PageSize="5">
+            <GridColumn TItem="Course" HeaderText="">
+                <input type="checkbox"
+                checked="@selectedIds.Contains(context.Id)"
+                @onchange="() => ToggleCourse(context.Id)" />
+            </GridColumn>
+            <GridColumn TItem="Course" HeaderText="Status">
+                <span class="@(context.IsActive ? "text-success" : "text-danger")">
+                    @(context.IsActive ? "Active" : "Inactive")
+                </span>
+            </GridColumn>
+            <GridColumn TItem="Course" HeaderText="Title" SortKeySelector="c => c.Title">
+                @context.Title
+            </GridColumn>
+            <GridColumn TItem="Course" HeaderText="Description" SortKeySelector="c => c.Description">
+                @context.Description
+            </GridColumn>
+            <GridColumn TItem="Course" HeaderText="Actions">
+                <div class="btn-group btn-group-sm">
+                    @if (context.IsActive)
+                    {
+                        <button class="btn btn-primary btn-sm"
+                        @onclick="() => Enroll(context.Id)">
+                            Enroll
+                        </button>
+                    }
+                    else
+                    {
+                        <span class="text-muted small">Inactive</span>
+                    }
+                    @if (isAdmin)
+                    {
+                        @if (editingId == context.Id)
+                        {
+                            <button class="btn btn-success btn-sm" @onclick="SaveEdit">Save</button>
+                            <button class="btn btn-secondary btn-sm" @onclick="CancelEdit">Cancel</button>
+                        }
+                        else
+                        {
+                            <button class="btn btn-warning btn-sm"
+                            @onclick="() => StartEdit(context)">
+                                Edit
+                            </button>
+                            <button class="btn btn-danger btn-sm"
+                            @onclick="() => RemoveCourse(context.Id)">
+                                Delete
+                            </button>
+                        }
+                    }
+                </div>
+            </GridColumn>
+        </Grid>
+    }
+    else
+    {
+        <p>No records found</p>
+    }
+
+
+    <!-- Edit Form -->
+    @if (editingId != 0)
+    {
+        <div class="card mt-4 border-primary">
+            <div class="card-header">Edit Course</div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label>Title</label>
+                        <InputText class="form-control" @bind-Value="editTitle" />
+                    </div>
+                    <div class="col-md-6">
+                        <label>Description</label>
+                        <InputText class="form-control" @bind-Value="editDescription" />
+                    </div>
+                    <div class="col-12">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" @bind="editIsActive" />
+                            <label class="form-check-label">Active</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer">
+                <button class="btn btn-success" @onclick="SaveEdit">Save Changes</button>
+                <button class="btn btn-secondary ms-2" @onclick="CancelEdit">Cancel</button>
+            </div>
+        </div>
+    }
+
+    <!-- Add New Course -->
+    @if (showAddForm)
+    {
+        <div class="card mt-4">
+            <div class="card-header">Add New Course</div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label>Title</label>
+                        <InputText class="form-control" @bind-Value="newTitle" />
+                    </div>
+                    <div class="col-md-6">
+                        <label>Description</label>
+                        <InputText class="form-control" @bind-Value="newDescription" />
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer">
+                <button class="btn btn-success" @onclick="AddCourse">Create Course</button>
+                <button class="btn btn-secondary ms-2" @onclick="() => showAddForm = false">Cancel</button>
+            </div>
+        </div>
+    }
+}
+
+<h3 class="mt-5">My Enrolled Courses</h3>
+
+@if (isEnrollmentGridLoading)
+{
+    <div class="alert alert-info">Loading enrolled courses...</div>
+}
+else if (enrolledCourses == null || !enrolledCourses.Any())
+{
+    <p>No enrolled courses yet.</p>
+}
+else
+{
+    <!-- Bulk Deregister Button + Select All -->
+    <div class="mb-3">
+        <button class="btn-danger me-2"
+                disabled="@(selectedEnrolledIds.Count == 0)"
+                @onclick="BulkDeregister">
+            Deregister Selected (@selectedEnrolledIds.Count)
+        </button>
+        <button type="button" class="btn btn-outline-secondary me-2"
+                @onclick="ToggleSelectAllEnrolled">
+            @(enrolledCourses.All(c => selectedEnrolledIds.Contains(c.CourseId))
+                ? "Deselect All"
+                : "Select All")
+        </button>
+    </div>
+
+    <Grid TItem="Enrollment.EnrolledCourses"
+          Data="enrolledCourses"
+          Class="table table-hover table-striped"
+          Responsive="true"
+          AllowPaging="true"
+          PageSize="5">
+
+        <!-- Checkbox Column -->
+        <GridColumn TItem="Enrollment.EnrolledCourses" HeaderText="">
+            <input type="checkbox"
+                   checked="@selectedEnrolledIds.Contains(context.CourseId)"
+                   @onchange="() => ToggleEnrolledCourse(context.CourseId)" />
+        </GridColumn>
+
+        <GridColumn TItem="Enrollment.EnrolledCourses" HeaderText="Title">
+            <strong>@context.Title</strong>
+        </GridColumn>
+
+        <GridColumn TItem="Enrollment.EnrolledCourses" HeaderText="Description">
+            @context.Description
+        </GridColumn>
+
+        @if (isAdmin)
+        {
+            <GridColumn TItem="Enrollment.EnrolledCourses" HeaderText="Students">
+                @context.TotalUsers
+            </GridColumn>
+        }
+
+        <GridColumn TItem="Enrollment.EnrolledCourses" HeaderText="Actions">
+            @if (!isAdmin)
+            {
+                <button class="btn btn-sm btn-outline-danger"
+                        @onclick="() => Deregister(context.CourseId)">
+                    Deregister
+                </button>
+            }
+            else
+            {
+                <button class="btn btn-sm btn-primary"
+                        @onclick="() => LoadAndExpandUsers(context.CourseId)">
+                    @(expandedCourseId == context.CourseId ? "Hide Users" : "View Users")
+                </button>
+            }
+        </GridColumn>
+    </Grid>
+
+    <!-- EXPANDED USERS PANEL - Admin Only -->
+    @if (isAdmin && expandedCourseId.HasValue)
+    {
+        var currentCourseId = expandedCourseId.Value;
+        var users = enrolledUsersByCourse.GetValueOrDefault(currentCourseId);
+
+        <div class="border-start border-primary border-4 ps-4 py-3 bg-light mt-3 mb-4 rounded shadow-sm">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="mb-0 fw-bold">
+                    Enrolled Students @(users?.Count > 0 ? $"({users.Count})" : "(0)")
+                </h6>
+                <div class="d-flex gap-2">
+                    @if (users?.Count > 0 && selectedUserIdsForCourse.ContainsKey(currentCourseId) &&
+                   selectedUserIdsForCourse[currentCourseId].Any())
+                    {
+                        <button class="btn btn-danger btn-sm"
+                                @onclick="() => ExcludeSelectedUsers(currentCourseId)">
+                            Exclude Selected (@selectedUserIdsForCourse[currentCourseId].Count)
+                        </button>
+                    }
+                    <button class="btn btn-outline-secondary btn-sm"
+                            @onclick="() => expandedCourseId = null">
+                        Close
+                    </button>
+                </div>
+            </div>
+
+            @if (users != null && users.Any())
+            {
+                <table class="table table-sm table-bordered">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width:40px">
+                                <input type="checkbox"
+                                       @onchange="@(e => ToggleSelectAllUsers(currentCourseId, e.Value ?? false))" />
+                            </th>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Enrolled On</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var user in users)
+                        {
+                            <tr>
+                                <td>
+                                    <input type="checkbox"
+                                           checked="@IsUserSelected(currentCourseId, user.UserId)"
+                                           @onchange="() => ToggleUserSelection(currentCourseId, user.UserId)" />
+                                </td>
+                                <td>@user.Name</td>
+                                <td>@user.Email</td>
+                                <td>@user.EnrolledAt.ToString("MMM dd, yyyy")</td>
+                                <td>
+                                    <span class="badge @(user.IsActive ? "bg-success" : "bg-secondary")">
+                                        @(user.IsActive ? "Active" : "Inactive")
+                                    </span>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            else
+            {
+                <div class="text-muted fst-italic">
+                    No students enrolled in this course.
+                </div>
+            }
+        </div>
+    }
+}
+@code {
+
+    public string? role = null;
+    private int? expandedCourseId;
+    private Dictionary<int, List<EnrolledUsers>> enrolledUsersByCourse = new();
+    private Dictionary<int, HashSet<int>> selectedUserIdsForCourse = new();
+    private HashSet<int> selectedEnrolledIds = new();
+    private bool isCourseGridLoading = true;
+    private bool isEnrollmentGridLoading = true;
+    private List<Course>? courses;
+    private List<Enrollment.EnrolledCourses>? enrolledCourses;
+    private HashSet<int> selectedIds = new();
+    private bool isAdmin = false;
+    private bool showAddForm = false;
+    private int userId;
+    // Editing state
+    private int editingId = 0;
+    private string editTitle = "";
+    private string editDescription = "";
+    private bool editIsActive = true;
+    private List<EnrolledUsers> enrolledUsers = new();
+
+    // Add new course state
+    private string newTitle = "";
+    private string newDescription = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthProvider.GetAuthenticationStateAsync();
+        isAdmin = auth.User.IsInRole("admin");
+        userId = Convert.ToInt32(await LocalStorage.GetItemAsync<string>("userId"));
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        isCourseGridLoading = true;
+        isEnrollmentGridLoading = true;
+        var availableResp = await Api.TSendAsync<AppResponse<List<Course>>>("api/courses/available");
+        courses = availableResp?.Data ?? new List<Course>();
+
+        var enrolledResp = await Api.TSendAsync<AppResponse<List<Enrollment.EnrolledCourses>>>($"api/courses/enrolled/{userId}");
+		enrolledCourses = enrolledResp?.Data ?? new List<Enrollment.EnrolledCourses>();
+        isCourseGridLoading = false;
+        isEnrollmentGridLoading = false;
+        selectedIds.Clear();
+        editingId = 0;		
+    }
+
+    private async Task LoadAndExpandUsers(int courseId)
+    {
+        if (expandedCourseId == courseId)
+        {
+            expandedCourseId = null;
+            return;
+        }
+
+        expandedCourseId = courseId;
+
+        // Only load once
+        if (!enrolledUsersByCourse.ContainsKey(courseId))
+        {
+            var response = await Api.TSendAsync<AppResponse<List<EnrolledUsers>>>(
+                $"api/courses/enrolled-users/{courseId}");
+
+            if (response?.Success == true && response.Data != null)
+            {
+                enrolledUsersByCourse[courseId] = response.Data;
+            }
+            else
+            {
+                enrolledUsersByCourse[courseId] = new();
+                Notify.Show("Failed to load enrolled users.", 500);
+            }
+        }
+    }
+
+    private bool IsUserSelected(int courseId, int userId)
+    {
+        return selectedUserIdsForCourse.ContainsKey(courseId) &&
+               selectedUserIdsForCourse[courseId].Contains(userId);
+    }
+
+    private void ToggleUserSelection(int courseId, int userId)
+    {
+        if (!selectedUserIdsForCourse.ContainsKey(courseId))
+            selectedUserIdsForCourse[courseId] = new();
+
+        if (selectedUserIdsForCourse[courseId].Contains(userId))
+            selectedUserIdsForCourse[courseId].Remove(userId);
+        else
+            selectedUserIdsForCourse[courseId].Add(userId);
+    }
+
+    private void ToggleSelectAllUsers(int courseId, object checkedValue)
+    {
+        var isChecked = (bool)checkedValue;
+        var users = enrolledUsersByCourse.GetValueOrDefault(courseId);
+
+        if (!selectedUserIdsForCourse.ContainsKey(courseId))
+            selectedUserIdsForCourse[courseId] = new();
+
+        if (isChecked && users != null)
+            selectedUserIdsForCourse[courseId] = new HashSet<int>(users.Select(u => u.UserId));
+        else
+            selectedUserIdsForCourse[courseId].Clear();
+    }
+
+    private async Task ExcludeSelectedUsers(int courseId)
+    {
+        if (!selectedUserIdsForCourse.TryGetValue(courseId, out var userIds) || !userIds.Any())
+            return;
+
+        var response = await Api.TSendAsync<AppResponse>(
+            $"api/courses/exclude-users/{courseId}",
+            userIds.ToList(),
+            "POST");
+
+        if (response?.Success == true)
+        {
+            // Remove from UI
+            if (enrolledUsersByCourse.TryGetValue(courseId, out var list))
+            {
+                list.RemoveAll(u => userIds.Contains(u.UserId));
+            }
+            selectedUserIdsForCourse.Remove(courseId);
+
+            // Update TotalUsers if needed
+            var course = enrolledCourses!.FirstOrDefault(c => c.CourseId == courseId);
+            if (course != null) course.TotalUsers = list!.Count;
+
+            Notify.Show("Users excluded successfully", 200);
+        }
+        else
+        {
+            Notify.Show("Failed to exclude users", 500);
+        }
+    }
+
+    private void ToggleCourse(int id)
+    {
+        if (selectedIds.Contains(id))
+            selectedIds.Remove(id);
+        else
+            selectedIds.Add(id);
+
+        StateHasChanged(); // Important!
+    }
+
+    private void ToggleSelectAll()
+    {
+        if (courses == null || !courses.Any())
+            return;
+
+        if (selectedIds.Count == courses.Count)
+        {
+            selectedIds.Clear();
+        }
+        else
+        {
+            selectedIds = new HashSet<int>(courses.Select(c => c.Id));
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task BulkEnroll()
+    {
+        if (selectedIds.Count == 0)
+            return;
+
+        foreach (var id in selectedIds.ToList())
+        {
+            var response = await Api.TSendAsync<AppResponse>($"api/courses/enroll/{id}-{userId}", null, "POST");
+            Notify.Show(response!.Message + $" CourseId : {id}", response.Code);   
+        }
+
+        selectedIds.Clear();
+        await LoadData();
+        StateHasChanged();
+    }
+
+    private async Task Enroll(int id)
+    {
+        AppResponse? response = await Api.TSendAsync<AppResponse>($"api/courses/enroll/{id}-{userId}",null,"POST");
+        Notify.Show(response?.Message!, response!.Code);
+        await LoadData();
+    }
+
+    private void StartEdit(Course course)
+    {
+        editingId = course.Id;
+        editTitle = course.Title!;
+        editDescription = course.Description!;
+        editIsActive = course.IsActive;
+    }
+
+    private async Task SaveEdit()
+    {
+        Course updated = new Course{
+            Id = editingId,
+            Title = editTitle.Trim(),
+            Description = editDescription.Trim(),
+            IsActive = editIsActive
+        };
+
+        AppResponse? response = await Api.TSendAsync<AppResponse>($"api/courses",updated,"PUT");
+        Notify.Show(response?.Message!, response?.Code);
+        await LoadData();
+
+        editingId = 0;
+    }
+
+    private void CancelEdit() => editingId = 0;
+
+    private async Task AddCourse()
+    {
+        if (string.IsNullOrWhiteSpace(newTitle))
+        {
+            Notify.Show("Title required", 404);
+        }
+
+
+        var course = new Course { 
+            Id = 0, 
+            Title = newTitle.Trim(), 
+            Description = newDescription.Trim(), 
+            IsActive = true 
+        };
+
+        AppResponse? response = await Api.TSendAsync<AppResponse>("api/courses",course,"POST");
+        Notify.Show(response?.Message!, response?.Code);
+        newTitle = "";
+        newDescription = "";
+        showAddForm = false;
+
+        await LoadData();
+    }
+
+    private async Task RemoveCourse(int id)
+    {
+        if (await JSRuntime.InvokeAsync<bool>("confirm", "Delete permanently?"))
+        {
+            AppResponse? response = await Api.TSendAsync<AppResponse>($"api/courses/{id}", null, "DELETE");
+            Notify.Show(response?.Message!, response?.Code);
+            await LoadData();
+        }
+        return;
+    }
+
+    private async Task Deregister(int id)
+    {
+        AppResponse? response = await Api.TSendAsync<AppResponse>($"api/courses/deregister/{id}-{userId}",null,"DELETE");
+        Notify.Show(response?.Message!, response?.Code);
+        await LoadData();
+    }
+
+    private void ToggleEnrolledCourse(int courseId)
+    {
+        if (selectedEnrolledIds.Contains(courseId))
+            selectedEnrolledIds.Remove(courseId);
+        else
+            selectedEnrolledIds.Add(courseId);
+
+        StateHasChanged();
+    }
+
+    private void ToggleSelectAllEnrolled()
+    {
+        if (enrolledCourses == null || !enrolledCourses.Any())
+            return;
+
+        if (selectedEnrolledIds.Count == enrolledCourses.Count)
+        {
+            selectedEnrolledIds.Clear();
+        }
+        else
+        {
+            selectedEnrolledIds = new HashSet<int>(enrolledCourses.Select(c => c.CourseId));
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task BulkDeregister()
+    {
+        if (selectedEnrolledIds.Count == 0)
+            return;
+
+        foreach (var id in selectedEnrolledIds.ToList())
+        {
+            AppResponse? response = await Api.TSendAsync<AppResponse>($"api/courses/deregister/{id}-{userId}", null, "DELETE");
+            Notify.Show(response!.Message + $" CourseId : {id}", response.Code);
+        }
+
+        selectedEnrolledIds.Clear();
+        await LoadData();
+    }
+
+}

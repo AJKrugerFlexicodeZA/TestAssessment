@@ -1,0 +1,67 @@
+﻿<!-- Components/ToastContainer.razor (FINAL BEST VERSION) -->
+@using StudentCourseEnrollments.Services
+@inject NotificationService NotificationService
+@implements IDisposable
+@using MIDTIER.Models
+
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1100;">
+    @foreach (var toast in _toasts)
+    {
+        <div @key="toast.Id"
+             class="toast show align-items-center text-white border-0 mt-2 @(GetCssClass(toast.Type))"
+             role="alert">
+
+            <div class="d-flex">
+                <div class="toast-body">
+                    <strong>@toast.Message</strong>
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto"
+                        @onclick="() => Dismiss(toast.Id)"></button>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<Notification> _toasts = new();
+
+    protected override void OnInitialized()
+    {
+        NotificationService.OnChange += UpdateToasts;
+        UpdateToasts();
+    }
+
+    private void UpdateToasts()
+    {
+        _toasts = NotificationService.GetNotifications().ToList();
+        foreach (var toast in _toasts)
+        {
+            // Start timer only once
+            if (!toast.IsTimerStarted)
+            {
+                toast.IsTimerStarted = true;
+                _ = Task.Delay(toast.DurationMs).ContinueWith(_ =>
+                {
+                    InvokeAsync(() => NotificationService.Remove(toast.Id));
+                });
+            }
+        }
+        StateHasChanged();
+    }
+
+    private void Dismiss(Guid id) => NotificationService.Remove(id);
+
+    private string GetCssClass(NotificationType type) => type switch
+    {
+        NotificationType.Success => "bg-success",
+        NotificationType.Error => "bg-danger",
+        NotificationType.Warning => "bg-warning text-dark",
+        NotificationType.Info => "bg-info",
+        _ => "bg-secondary"
+    };
+
+    public void Dispose()
+    {
+        NotificationService.OnChange -= UpdateToasts;
+    }
+}

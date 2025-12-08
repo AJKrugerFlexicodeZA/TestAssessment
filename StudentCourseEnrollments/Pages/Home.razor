@@ -1,0 +1,21 @@
+﻿@page "/"
+@inject Blazored.LocalStorage.ILocalStorageService LocalStorage
+@using MIDTIER.Models
+@using Microsoft.AspNetCore.Components.Authorization
+@inject NavigationManager Nav
+
+<AuthorizeView>
+    <PageTitle>Home</PageTitle>
+    <h1>Welcome, @context.User.Identity?.Name!</h1>
+    <h2>You are a @role?.ToUpper()</h2>
+    <p>You are now logged in. Go to <a href="/courses">Courses</a></p>
+</AuthorizeView>
+
+@code{
+    private RouteData? routeData = new RouteData(typeof(Home), new Dictionary<string, object?>());
+    public string? role = null;
+    protected override async Task OnInitializedAsync()
+    {
+        role = await LocalStorage.GetItemAsync<string>("role") ?? null;
+    }
+}

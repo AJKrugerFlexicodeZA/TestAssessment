@@ -1,0 +1,251 @@
+﻿@page "/users"
+@inject StudentCourseEnrollments.Services.APIService Api
+@using Microsoft.AspNetCore.Components.Authorization
+@using MIDTIER.Models
+@using Blazored.LocalStorage
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject ILocalStorageService LocalStorage
+@using BlazorBootstrap
+@inject StudentCourseEnrollments.Services.NotificationService Notify
+
+<PageTitle>Users</PageTitle>
+
+<h1 class="mt-4">Users Management</h1>
+
+@if (users == null)
+{
+    <div class="alert alert-info">Loading users...</div>
+}
+else
+{
+    <!-- Bulk Actions + Select All + Add Button -->
+    <div class="mb-3">
+        <button class="btn btn-danger me-2"
+                disabled="@(selectedUserIds.Count == 0)"
+                @onclick="BulkDeactivate">
+            Deactivate Selected (@selectedUserIds.Count)
+        </button>
+
+        <button type="button" class="btn btn-outline-secondary me-2"
+                @onclick="ToggleSelectAll">
+            @(users.Any() && users.All(u => selectedUserIds.Contains(u.Id)) 
+                ? "Deselect All" 
+                : "Select All")
+        </button>
+
+        <button class="btn btn-success" @onclick="ShowAddUserModal">
+            Add New User
+        </button>
+    </div>
+
+    <!-- Users Grid -->
+    <Grid TItem="User"
+          Data="users"
+          Class="table table-hover table-striped"
+          Responsive="true"
+          AllowPaging="true"
+          PageSize="10">
+
+        <GridColumn TItem="User" HeaderText="">
+            <input type="checkbox"
+                   checked="@selectedUserIds.Contains(context.Id)"
+                   @onchange="() => ToggleUser(context.Id)" />
+        </GridColumn>
+
+        <GridColumn TItem="User" HeaderText="Name" SortKeySelector="u => u.Name">
+            @context.Name
+        </GridColumn>
+
+        <GridColumn TItem="User" HeaderText="Email" SortKeySelector="u => u.Email">
+            @context.Email
+        </GridColumn>
+
+        <GridColumn TItem="User" HeaderText="Roles">
+            <span class="badge @(context.Role == Roles.admin ? "bg-danger" : "bg-primary")">
+                @context.Role
+            </span>
+        </GridColumn>
+
+        <GridColumn TItem="User" HeaderText="Status">
+            <span class="@(context.IsActive ? "text-success" : "text-danger")">
+                @(context.IsActive ? "Active" : "Inactive")
+            </span>
+        </GridColumn>
+
+        <GridColumn TItem="User" HeaderText="Actions">
+            <button class="btn btn-sm btn-warning" @onclick="() => EditUser(context)">
+                Edit
+            </button>
+        </GridColumn>
+    </Grid>
+}
+
+<!-- Add/Edit User Modal -->
+<Modal @ref="userModal" Title="@(editingUser == null ? "Add New User" : "Edit User")">
+    <BodyTemplate>
+        <EditForm Model="userForm" OnValidSubmit="SaveUser">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+
+            <div class="mb-3">
+                <label class="form-label">Name</label>
+                <InputText @bind-Value="userForm.Name" class="form-control" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Email</label>
+                <InputText @bind-Value="userForm.Email" class="form-control" type="email" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Role</label>
+                <InputSelect @bind-Value="userForm.Role" class="form-select">
+                    <option value="student">Student</option>
+                    <option value="admin">Admin</option>
+                </InputSelect>
+            </div>
+
+            @if (editingUser == null)
+            {
+                <div class="mb-3">
+                    <label class="form-label">Password</label>
+                    <InputText @bind-Value="userForm.Password" class="form-control" type="password" />
+                </div>
+            }
+
+            <div class="form-check mb-3">
+                <InputCheckbox @bind-Value="userForm.IsActive" class="form-check-input" />
+                <label class="form-check-label">Active</label>
+            </div>
+        </EditForm>
+    </BodyTemplate>
+
+    <FooterTemplate>
+        <Button Color="ButtonColor.Secondary" @onclick="HideModal">Cancel</Button>
+        <Button Color="ButtonColor.Primary" @onclick="SaveUser">
+            @(editingUser == null ? "Create User" : "Update User")
+        </Button>
+    </FooterTemplate>
+</Modal>
+
+@code {
+    private Modal? userModal;
+    private List<User>? users;
+    private HashSet<int> selectedUserIds = new();
+    private bool isAdmin = false;
+
+    // Modal form
+    private User userForm = new();
+    private User? editingUser;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        isAdmin = authState.User.IsInRole("admin");
+
+        if (!isAdmin)
+        {
+            // Optional: redirect non-admins
+            // NavigationManager.NavigateTo("/");
+        }
+
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        var response = await Api.TSendAsync<AppResponse<List<User>>>("api/users");
+        users = response?.Data ?? new List<User>();
+        selectedUserIds.Clear();
+        StateHasChanged();
+    }
+
+    private void ToggleUser(int userId)
+    {
+        if (selectedUserIds.Contains(userId))
+            selectedUserIds.Remove(userId);
+        else
+            selectedUserIds.Add(userId);
+        StateHasChanged();
+    }
+
+    private void ToggleSelectAll()
+    {
+        if (users == null || !users.Any()) return;
+
+        if (selectedUserIds.Count == users.Count)
+            selectedUserIds.Clear();
+        else
+            selectedUserIds = new HashSet<int>(users.Select(u => u.Id));
+
+        StateHasChanged();
+    }
+
+    private async Task BulkDeactivate()
+    {
+        if (selectedUserIds.Count == 0) return;
+
+        // Example: call your API to deactivate users
+        foreach (var id in selectedUserIds)
+        {
+           await Api.TSendAsync<AppResponse>($"api/users/{id}", null, "DELETE");      
+        }
+
+        Notify.Show($"{selectedUserIds.Count} users deactivated", 200);
+        selectedUserIds.Clear();
+        await LoadData();
+    }
+
+    private void ShowAddUserModal()
+    {
+        editingUser = null;
+        userForm = new User { IsActive = true, Role = Roles.student };
+        userModal?.ShowAsync();
+    }
+
+    private void EditUser(User user)
+    {
+        editingUser = user;
+        userForm = new User
+        {
+            Id = user.Id,
+            Name = user.Name,
+            Email = user.Email,
+            Role = user.Role,
+            IsActive = user.IsActive
+        };
+        userModal?.ShowAsync();
+    }
+
+    private async Task SaveUser()
+    {
+        AppResponse? response;
+
+        if (editingUser == null)
+        {
+            // Add new user
+            response = await Api.TSendAsync<AppResponse>("api/users", userForm, "POST");
+        }
+        else
+        {
+            // Update existing
+            response = await Api.TSendAsync<AppResponse>($"api/users", userForm, "PUT");
+        }
+
+        if (response?.Success == true)
+        {
+            Notify.Show(response.Message ?? "Saved!",response.Code);
+            await LoadData();
+            await HideModal();
+        }
+        else
+        {
+            Notify.Show(response?.Message ?? "Error saving user",response!.Code);
+        }
+    }
+
+    private async Task HideModal()
+    {
+        await (userModal?.HideAsync() ?? Task.CompletedTask);
+    }
+}

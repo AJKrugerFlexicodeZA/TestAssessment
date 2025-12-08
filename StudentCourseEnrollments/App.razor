@@ -1,0 +1,41 @@
+﻿@using Microsoft.AspNetCore.Components.Authorization
+@using StudentCourseEnrollments.Layout
+@using StudentCourseEnrollments.Pages
+
+<CascadingAuthenticationState>
+    <Router AppAssembly="@typeof(App).Assembly">
+        <Found Context="routeData">
+            @{
+                var currentPath = Navigation.Uri.Replace(Navigation.BaseUri, "").TrimStart('/');
+            }
+
+            @if (currentPath.Equals("login", StringComparison.OrdinalIgnoreCase))
+            {
+                <LayoutView Layout="@typeof(EmptyLayout)">
+                    <LoginPage />
+                </LayoutView>
+            }
+            else
+            {
+                <AuthorizeView>
+                    <Authorized>
+                        <LayoutView Layout="@typeof(MainLayout)">
+                            <RouteView RouteData="@routeData" />
+                        </LayoutView>
+                    </Authorized>
+                    <NotAuthorized>
+                        <RedirectToLogin />
+                    </NotAuthorized>
+                </AuthorizeView>
+            }
+        </Found>
+
+        <NotFound>
+            <LayoutView Layout="@typeof(MainLayout)">
+                <p>Sorry, there's nothing here.</p>
+            </LayoutView>
+        </NotFound>
+    </Router>
+</CascadingAuthenticationState>
+
+@inject NavigationManager Navigation

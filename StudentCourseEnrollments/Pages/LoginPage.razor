@@ -1,0 +1,99 @@
+﻿@page "/login"
+@layout EmptyLayout
+@using MIDTIER.Models
+@using StudentCourseEnrollments.Services
+@inject APIService Api
+@inject Blazored.LocalStorage.ILocalStorageService LocalStorage
+@inject JwtAuthenticationStateProvider AuthProvider
+@inject NavigationManager Nav
+@inject NotificationService Notify
+
+<PageTitle>Login</PageTitle>
+
+<div class="flex min-h-screen items-center justify-center bg-gradient-to-br from-indigo-500 to-purple-600 p-4">
+    <div class="w-full max-w-md rounded-2xl bg-white p-10 shadow-2xl">
+        <div class="card">
+            <div class="card-header text-center">
+                <h2 class="mb-8 text-3xl font-bold text-gray-800">Course Enrollment</h2>
+            </div>
+            <div class="card-body">
+                @if (showRegister)
+                {
+                    <RegisterStudent OnClose="CloseRegisterModal" />
+                }
+                else
+                {
+                    <EditForm Model="loginModel" OnValidSubmit="Login">
+                        <DataAnnotationsValidator />
+                        <ValidationSummary />
+
+                        <div class="mb-6">
+                            <InputText @bind-Value="loginModel.Email"
+                            class="w-full rounded-lg border border-gray-300 px-4 py-3 text-lg focus:border-indigo-500 focus:outline-none"
+                            placeholder="Email" />
+                            <ValidationMessage For="@(() => loginModel.Email)" />
+
+                        </div>
+                        <div class="mb-8">
+                            <InputText @bind-Value="loginModel.Password"
+                            type="password"
+                            class="w-full rounded-lg border border-gray-300 px-4 py-3 text-lg focus:border-indigo-500 focus:outline-none"
+                            placeholder="Password" />
+                            <ValidationMessage For="@(() => loginModel.Password)" />
+                        </div>
+
+                        <button type="submit"
+                        class="w-full rounded-lg bg-indigo-600 py-4 text-lg font-semibold text-white hover:bg-indigo-700 transition">
+                            Login
+                        </button>
+
+                        <p class="mt-4 text-center text-gray-600">
+                            Or
+                            <button type="button" @onclick="OpenRegisterModal"
+                            class="text-indigo-600 underline font-semibold hover:text-indigo-800">
+                                register here
+                            </button>
+                        </p>
+                    </EditForm>
+
+                    @if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <div class="mt-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg text-center">
+                            @errorMessage
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private Login loginModel = new();
+    private string? errorMessage;
+    private bool showRegister = false;
+
+    private void OpenRegisterModal() => showRegister = true;
+    private void CloseRegisterModal() => showRegister = false;
+
+    private async Task Login()
+    {
+        errorMessage = null;
+
+        var response = await Api.TSendAsync<LoginResponse>("api/auth/login", loginModel, "POST");
+        if(response?.Code > 200)
+        {
+            Notify.Show(response.Message!, response.Code);
+        }
+        await LocalStorage.SetItemAsync("token", response?.Token);
+        await LocalStorage.SetItemAsync("userId", response?.UserId.ToString());
+        await LocalStorage.SetItemAsync("role", response?.Role);
+        await LocalStorage.SetItemAsync("name", response?.Name);
+
+        AuthProvider.NotifyUserAuthentication(response?.Token!);
+        Notify.Show(response?.Message!, response?.Code);
+
+        await Task.Delay(1000);
+        Nav.NavigateTo("/", true);
+    }
+}
