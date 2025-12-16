@@ -1,61 +1,80 @@
 ﻿@* Pages/RegisterModal.razor *@
 @using MIDTIER.Models
 @using StudentCourseEnrollments.Services
-@inject HttpClient Http
+
 @inject NavigationManager Nav
 @inject Blazored.LocalStorage.ILocalStorageService LocalStorage
 @inject JwtAuthenticationStateProvider AuthProvider
 @inject StudentCourseEnrollments.Services.APIService Api
 @inject NotificationService Notify
+
 <PageTitle>Register User</PageTitle>
 
-<div class="fixed inset-0 z-50 flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 relative animate-in fade-in zoom-in duration-200">
-        <!-- Close Button -->
-        <button @onclick="OnClose" class="absolute top-4 right-4 text-gray-500 hover:text-gray-700">
-            <span class="text-3xl">&times;</span>
-        </button>
+<!-- Modal Backdrop -->
+<div class="position-fixed top-0 start-0 w-100 h-100 bg-dark bg-opacity-50
+            d-flex align-items-center justify-content-center z-3">
 
-        <h2 class="text-3xl font-bold text-center mb-8 text-gray-800">Create Account</h2>
+    <!-- Card -->
+    <div class="card shadow-lg border-0 w-100" style="max-width: 420px;">
+        <div class="card-body p-4 position-relative">
 
-        <EditForm Model="registerModel" OnValidSubmit="RegisterAsync">
-            <DataAnnotationsValidator />
-            <ValidationSummary />
-
-            <div class="mb-5">
-                <InputText @bind-Value="registerModel.Name" 
-                placeholder="Full Name" 
-                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500" />
-                <ValidationMessage For="@(() => registerModel.Name)" class="text-red-600 text-sm mt-1" />
-            </div>
-
-            <div class="mb-5">
-                <InputText @bind-Value="registerModel.Email" 
-                placeholder="Email Address" 
-                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500" />
-                <ValidationMessage For="@(() => registerModel.Email)" class="text-red-600 text-sm mt-1" />
-            </div>
-
-            <div class="mb-6">
-                <InputText @bind-Value="registerModel.Password" 
-                type="Password" 
-                placeholder="Password" 
-                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500" />
-                <ValidationMessage For="@(() => registerModel.Password)" class="text-red-600 text-sm mt-1" />
-            </div>
-
-            <button type="submit" 
-            class="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold py-4 rounded-lg hover:from-indigo-700 hover:to-purple-700 transition">
-                Register
+            <!-- Close Button -->
+            <button type="button"
+                    class="btn-close position-absolute top-0 end-0 m-3"
+                    @onclick="OnClose">
             </button>
-        </EditForm>
 
-        @if (!string.IsNullOrEmpty(Message))
-        {
-            <div class="mt-6 p-4 rounded-lg text-center @(IsSuccess ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800")">
-                @Message
-            </div>
-        }
+            <!-- Title -->
+            <h2 class="text-center fw-bold mb-4">
+                Create Account
+            </h2>
+
+            <EditForm Model="registerModel" OnValidSubmit="RegisterAsync">
+                <DataAnnotationsValidator />
+
+                <!-- Name -->
+                <div class="mb-3">
+                    <InputText @bind-Value="registerModel.Name"
+                               class="form-control form-control-lg"
+                               placeholder="Full Name" />
+                    <ValidationMessage For="@(() => registerModel.Name)"
+                                       class="text-danger small" />
+                </div>
+
+                <!-- Email -->
+                <div class="mb-3">
+                    <InputText @bind-Value="registerModel.Email"
+                               class="form-control form-control-lg"
+                               placeholder="Email Address" />
+                    <ValidationMessage For="@(() => registerModel.Email)"
+                                       class="text-danger small" />
+                </div>
+
+                <!-- Password -->
+                <div class="mb-4">
+                    <InputText @bind-Value="registerModel.Password"
+                               type="password"
+                               class="form-control form-control-lg"
+                               placeholder="Password" />
+                    <ValidationMessage For="@(() => registerModel.Password)"
+                                       class="text-danger small" />
+                </div>
+
+                <!-- Register Button -->
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-primary btn-lg">
+                        Register
+                    </button>
+                </div>
+            </EditForm>
+
+            @if (!string.IsNullOrWhiteSpace(Message))
+            {
+                <div class="alert @(IsSuccess ? "alert-success" : "alert-danger") text-center mt-3">
+                    @Message
+                </div>
+            }
+        </div>
     </div>
 </div>
 
@@ -63,44 +82,51 @@
     [Parameter] public EventCallback OnClose { get; set; }
 
     private Register registerModel = new();
-    private string? Message = null;
-    private bool IsSuccess = false;
+    private string? Message;
+    private bool IsSuccess;
 
     private async Task RegisterAsync()
     {
-        AppResponse? response = await Api.TSendAsync<AppResponse>("api/auth/register",registerModel,"POST");
+        Message = null;
 
-        if (response!.Code == 201)
-            Notify.Show(response?.Message!, response?.Code);
-        var loginResponse = await Api.TSendAsync<LoginResponse>("api/auth/login",new Login
+        AppResponse? response = await Api.TSendAsync<AppResponse>(
+            "api/auth/register",
+            registerModel,
+            "POST");
+
+        if (response?.Code == 201)
         {
-            Email = registerModel.Email,
-            Password = registerModel.Password
-        },"POST");
+            Notify.Show(response.Message!, response.Code);
+        }
 
+        var loginResponse = await Api.TSendAsync<LoginResponse>(
+            "api/auth/login",
+            new Login
+            {
+                Email = registerModel.Email,
+                Password = registerModel.Password
+            },
+            "POST");
 
-        if (loginResponse!.Code == 200)
+        if (loginResponse?.Code == 200)
         {
-            await LocalStorage.SetItemAsync("token", loginResponse!.Token);
+            await LocalStorage.SetItemAsync("token", loginResponse.Token);
             await LocalStorage.SetItemAsync("role", loginResponse.Role);
             await LocalStorage.SetItemAsync("userId", loginResponse.UserId);
+
             AuthProvider.NotifyUserAuthentication(loginResponse.Token);
+
+            Notify.Show(response?.Message!, response?.Code);
             Nav.NavigateTo("/", forceLoad: true);
-            Notify.Show(response!.Message!, response.Code);
-        }
-        else if(loginResponse.Code > 200)
-        {
-            Message = "We are experiencing some technical difficulties. Please try again later.";
-            await LocalStorage.ClearAsync();
-            AuthProvider.NotifyUserLogout();
-            Nav.NavigateTo("/", forceLoad: true);
-            Notify.Show(response!.Message!, response.Code);
         }
         else
         {
             Message = "We are experiencing some technical difficulties. Please try again later.";
             IsSuccess = false;
-        }   
-        
+
+            await LocalStorage.ClearAsync();
+            AuthProvider.NotifyUserLogout();
+            Nav.NavigateTo("/", forceLoad: true);
+        }
     }
 }

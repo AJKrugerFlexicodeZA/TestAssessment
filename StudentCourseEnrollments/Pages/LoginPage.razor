@@ -1,7 +1,9 @@
 ﻿@page "/login"
 @layout EmptyLayout
+
 @using MIDTIER.Models
 @using StudentCourseEnrollments.Services
+
 @inject APIService Api
 @inject Blazored.LocalStorage.ILocalStorageService LocalStorage
 @inject JwtAuthenticationStateProvider AuthProvider
@@ -10,60 +12,79 @@
 
 <PageTitle>Login</PageTitle>
 
-<div class="flex min-h-screen items-center justify-center bg-gradient-to-br from-indigo-500 to-purple-600 p-4">
-    <div class="w-full max-w-md rounded-2xl bg-white p-10 shadow-2xl">
-        <div class="card">
-            <div class="card-header text-center">
-                <h2 class="mb-8 text-3xl font-bold text-gray-800">Course Enrollment</h2>
-            </div>
-            <div class="card-body">
-                @if (showRegister)
-                {
-                    <RegisterStudent OnClose="CloseRegisterModal" />
-                }
-                else
-                {
-                    <EditForm Model="loginModel" OnValidSubmit="Login">
-                        <DataAnnotationsValidator />
-                        <ValidationSummary />
+<div class="container-fluid vh-100 d-flex align-items-center justify-content-center bg-primary bg-gradient">
+    <div class="card shadow-lg border-0" style="max-width: 400px; width: 100%;">
+        <div class="card-body p-4">
 
-                        <div class="mb-6">
-                            <InputText @bind-Value="loginModel.Email"
-                            class="w-full rounded-lg border border-gray-300 px-4 py-3 text-lg focus:border-indigo-500 focus:outline-none"
-                            placeholder="Email" />
-                            <ValidationMessage For="@(() => loginModel.Email)" />
+            <h2 class="text-center mb-4 fw-bold">
+                Course Enrollment
+            </h2>
 
+            @if (showRegister)
+            {
+                <RegisterStudent OnClose="CloseRegisterModal" />
+            }
+            else
+            {
+                <EditForm Model="loginModel" OnValidSubmit="Login">
+                    <DataAnnotationsValidator />
+                    <!-- <ValidationSummary class="text-danger mb-3" /> -->
+
+                    <!-- Email -->
+                    <div class="mb-3">
+                        <InputText @bind-Value="loginModel.Email"
+                                   class="form-control form-control-lg"
+                                   placeholder="Email" />
+                        <ValidationMessage For="@(() => loginModel.Email)"
+                                           class="text-danger small" />
+                    </div>
+
+                    <!-- Password with show/hide -->
+                    <div class="mb-4">
+                        <div class="input-group input-group-lg">
+                            <input class="form-control"
+                                   placeholder="Password"
+                                   type="@PasswordInputType"
+                                   value="@loginModel.Password"
+                                   @oninput="e => loginModel.Password = e.Value?.ToString()" />
+
+                            <button type="button"
+                                    class="btn btn-outline-secondary"
+                                    @onclick="TogglePassword">
+                                <i class="bi @(showPassword ? "bi-eye-slash" : "bi-eye")"></i>
+                            </button>
                         </div>
-                        <div class="mb-8">
-                            <InputText @bind-Value="loginModel.Password"
-                            type="password"
-                            class="w-full rounded-lg border border-gray-300 px-4 py-3 text-lg focus:border-indigo-500 focus:outline-none"
-                            placeholder="Password" />
-                            <ValidationMessage For="@(() => loginModel.Password)" />
-                        </div>
 
-                        <button type="submit"
-                        class="w-full rounded-lg btn btn-primary bg-indigo-600 py-4 text-lg font-semibold text-white hover:bg-indigo-700 transition">
+                        <ValidationMessage For="@(() => loginModel.Password)"
+                                           class="text-danger small" />
+                    </div>
+
+
+                    <!-- Login Button -->
+                    <div class="d-grid mb-3">
+                        <button type="submit" class="btn btn-primary btn-lg">
                             Login
                         </button>
+                    </div>
 
-                        <p class="mt-4 text-center text-gray-600">
-                            Or
-                            <button type="button" @onclick="OpenRegisterModal"
-                            class="text-indigo-600 btn btn-secondary underline font-semibold hover:text-indigo-800">
-                                register here
-                            </button>
-                        </p>
-                    </EditForm>
+                    <!-- Register -->
+                    <div class="text-center">
+                        <span class="text-muted">Don’t have an account?</span>
+                        <button type="button"
+                                class="btn btn-link fw-semibold p-0 ms-1"
+                                @onclick="OpenRegisterModal">
+                            Register
+                        </button>
+                    </div>
+                </EditForm>
 
-                    @if (!string.IsNullOrEmpty(errorMessage))
-                    {
-                        <div class="mt-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg text-center">
-                            @errorMessage
-                        </div>
-                    }
+                @if (!string.IsNullOrWhiteSpace(errorMessage))
+                {
+                    <div class="alert alert-danger text-center mt-3">
+                        @errorMessage
+                    </div>
                 }
-            </div>
+            }
         </div>
     </div>
 </div>
@@ -73,6 +94,14 @@
     private string? errorMessage;
     private bool showRegister = false;
 
+    private bool showPassword = false;
+    private string PasswordInputType => showPassword ? "text" : "password";
+
+    private void TogglePassword()
+    {
+        showPassword = !showPassword;
+    }
+
     private void OpenRegisterModal() => showRegister = true;
     private void CloseRegisterModal() => showRegister = false;
 
@@ -80,11 +109,17 @@
     {
         errorMessage = null;
 
-        var response = await Api.TSendAsync<LoginResponse>("api/auth/login", loginModel, "POST");
-        if(response?.Code > 200)
+        var response = await Api.TSendAsync<LoginResponse>(
+            "api/auth/login",
+            loginModel,
+            "POST");
+
+        if (response?.Code > 200)
         {
             Notify.Show(response.Message!, response.Code);
+            return;
         }
+
         await LocalStorage.SetItemAsync("token", response?.Token);
         await LocalStorage.SetItemAsync("userId", response?.UserId.ToString());
         await LocalStorage.SetItemAsync("role", response?.Role);
