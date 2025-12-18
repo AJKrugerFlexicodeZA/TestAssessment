@@ -18,8 +18,9 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddScoped<EnrollmentService>();
 builder.Services.AddScoped<CourseService>();
 builder.Services.AddScoped<UserService>();
-builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
 builder.Services.AddScoped<UserHelper>();
+builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
+
 builder.Services.AddScoped<AuthService>();
 //JWT Authentication
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
