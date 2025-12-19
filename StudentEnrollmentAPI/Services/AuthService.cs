@@ -5,7 +5,7 @@ using Azure.Core;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.IdentityModel.Tokens;
 using MIDTIER.Models;
-using StudentCourseEnrollments.Services.StudentCourseEnrollments.Services;
+using StudentCourseEnrollments.Services;
 using StudentEnrollmentAPI.Data;
 using StudentEnrollmentAPI.Interfaces;
 

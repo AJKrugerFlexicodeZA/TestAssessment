@@ -4,7 +4,7 @@ using StudentEnrollmentAPI.Interfaces;
 using MIDTIER.Models;
 using static MIDTIER.Models.DTOs;
 using System.Collections.Generic;
-using StudentCourseEnrollments.Services.StudentCourseEnrollments.Services;
+using StudentCourseEnrollments.Services;
 
 namespace StudentEnrollmentAPI.Services
 {

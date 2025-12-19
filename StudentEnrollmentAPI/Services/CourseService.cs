@@ -1,6 +1,6 @@
 ﻿// Services/CourseService.cs
 using MIDTIER.Models;
-using StudentCourseEnrollments.Services.StudentCourseEnrollments.Services;
+using StudentCourseEnrollments.Services;
 using StudentEnrollmentAPI.Data;
 using StudentEnrollmentAPI.Interfaces;
 using static System.Runtime.InteropServices.JavaScript.JSType;

@@ -1,6 +1,6 @@
 ﻿using System.Security.Claims;
 using MIDTIER.Models;
-using StudentCourseEnrollments.Services.StudentCourseEnrollments.Services;
+using StudentCourseEnrollments.Services;
 using StudentEnrollmentAPI.Data;
 using StudentEnrollmentAPI.IEnumerables;
 using StudentEnrollmentAPI.Interfaces;
